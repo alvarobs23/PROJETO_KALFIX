@@ -1,0 +1,1672 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Sistema de Contador por Turnos</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #2B2D55 0%, #1a1b33 100%);
+      color: #ffffff;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    
+    h1 {
+      font-size: 2.8rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 8px rgba(0,0,0,0.3);
+      letter-spacing: -0.02em;
+    }
+    
+    .datetime {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.4rem;
+      font-weight: 500;
+      color: #e8e8e8;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+      margin-bottom: 20px;
+    }
+    
+    .status-indicator {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background-color: #00ff88;
+      margin-left: 15px;
+      animation: pulse 2s infinite;
+      box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+    }
+    
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(1.1); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    
+    .status-indicator.offline {
+      background-color: #ff4757;
+      box-shadow: 0 0 10px rgba(255, 71, 87, 0.5);
+    }
+    
+    .realtime-section {
+      margin-bottom: 50px;
+    }
+    
+    .current-shift-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-bottom: 30px;
+    }
+
+    .current-shift-card {
+      display: flex;
+      justify-content: center;
+    }
+
+    .current-shift-card .info-card {
+      max-width: 500px;
+      width: 100%;
+    }
+
+    .loss-registration-card {
+      display: flex;
+      justify-content: center;
+    }
+
+    .loss-registration-card .info-card {
+      max-width: 400px;
+      width: 100%;
+    }
+    
+    .kpi-cards {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 20px;
+      margin-top: 20px;
+      margin-bottom: 10px;
+    }
+
+    .kpi-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 2rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .kpi-sub {
+      font-size: 0.9rem;
+      color: #e8e8e8;
+      opacity: 0.9;
+      margin-top: 6px;
+    }
+
+    .shift-date {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.1rem;
+      color: #e8e8e8;
+      margin: 10px 0 20px 0;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+    }
+    
+    .analysis-section {
+      margin-bottom: 40px;
+    }
+    
+    .subsection-title {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: #ffd700;
+      text-shadow: 1px 1px 4px rgba(0,0,0,0.3);
+    }
+    
+    .info-card {
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 30px;
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .goal-input-container {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    #goal-input {
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 0.95rem;
+      font-family: 'Inter', sans-serif;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.2);
+      color: white;
+      outline: none;
+      transition: all 0.3s ease;
+    }
+
+    #goal-input:focus {
+      border-color: #ffd700;
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    #goal-submit-btn {
+      padding: 8px 15px;
+      background: #ffd700;
+      color: #1a1b33;
+      border: none;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    #goal-submit-btn:hover {
+      background: #ffec8a;
+    }
+
+    .info-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    
+    .info-card h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #f0f0f0;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .counter-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 4rem;
+      font-weight: 600;
+      color: #00ff88;
+      text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+      transition: all 0.3s ease;
+    }
+    
+    .efficiency-bar {
+      width: 100%;
+      height: 14px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 10px;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .efficiency-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: #ff6b6b;
+      transition: width 0.6s ease;
+    }
+    
+    .counter-value.updated {
+      animation: counterUpdate 0.6s ease-out;
+    }
+    
+    @keyframes counterUpdate {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); color: #00ffaa; }
+      100% { transform: scale(1); }
+    }
+    
+    .shift-name {
+      font-size: 2rem;
+      font-weight: 600;
+      color: #ffd700;
+      text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+    }
+    
+    .no-shift {
+      color: #ff6b6b;
+      font-style: italic;
+    }
+    
+    .main-content {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      margin-bottom: 40px;
+    }
+    
+    .history-section, .chart-section {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 20px;
+      padding: 30px;
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 24px;
+    }
+
+    .mini-chart-card {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 15px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+
+    .mini-charts {
+      display: grid;
+      grid-template-rows: 1fr 1fr;
+      gap: 24px;
+    }
+    
+    .section-title {
+      font-size: 1.8rem;
+      font-weight: 600;
+      margin-bottom: 25px;
+      color: #ffd700;
+      text-shadow: 2px 2px 6px rgba(0,0,0,0.3);
+    }
+    
+    .history-container {
+      max-height: 500px;
+      overflow-y: auto;
+      padding-right: 10px;
+    }
+    
+    .history-container::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .history-container::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+    
+    .history-container::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
+    }
+    
+    .history-container::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.5);
+    }
+    
+    .history-item {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.3s ease;
+    }
+    
+    .history-item:hover {
+      background: rgba(255, 255, 255, 0.12);
+      transform: translateX(5px);
+    }
+    
+    .history-item:last-child {
+      margin-bottom: 0;
+    }
+    
+    .history-main {
+      flex: 1;
+    }
+    
+    .history-shift {
+      font-weight: 600;
+      color: #ffd700;
+      font-size: 1.1rem;
+    }
+    
+    .history-time {
+      font-size: 0.9rem;
+      color: #ccc;
+      margin-top: 5px;
+    }
+    
+    .history-metrics {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+    
+    .history-metric {
+      text-align: center;
+      min-width: 80px;
+    }
+    
+    .metric-label {
+      font-size: 0.8rem;
+      color: #e8e8e8;
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+    
+    .metric-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.3rem;
+      font-weight: 600;
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+    }
+    
+    .metric-value.production {
+      color: #00ff88;
+    }
+    
+    .metric-value.losses {
+      color: #ff6b6b;
+    }
+    
+    
+    .no-history {
+      color: #ccc;
+      font-style: italic;
+      padding: 40px;
+      text-align: center;
+      font-size: 1.1rem;
+    }
+    
+    .chart-container {
+      position: relative;
+      height: 400px;
+      margin-top: 20px;
+    }
+    
+    .chart-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+    
+    .chart-type-controls, 
+    .time-period-controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    
+    .filter-group-label {
+      font-family: 'Poppins', 'Inter', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #FFD700;
+      margin-bottom: 12px;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-shadow: 1px 1px 5px rgba(0,0,0,0.4);
+      position: relative;
+      padding-bottom: 8px;
+    }
+
+    .filter-group-label::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, #FFD700, #00FF7F);
+      opacity: 0.6;
+    }
+
+    .filter-group-card {
+      background: transparent;
+      border: 2px solid #3A3D75;
+      box-shadow: none;
+      padding: 10px 25px;
+    }
+
+    .chart-btn, .period-btn {
+      background: transparent;
+      color: white;
+      padding: 5px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+      font-family: 'Inter', sans-serif;
+    }
+    
+    .filter-btn:hover, .chart-btn:hover, .period-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    
+    .filter-btn.active, .chart-btn.active, .period-btn.active {
+      background: #00ff88;
+      color: #000;
+      font-weight: 600;
+    }
+    
+    /* Novo Design do Dashboard de Performance */
+    .performance-dashboard {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 20px;
+      padding: 40px;
+      backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      margin-bottom: 40px;
+    }
+
+    .dashboard-title {
+      font-family: 'Poppins', 'Inter', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: #FFD700;
+      text-align: center;
+      margin-bottom: 30px;
+      text-shadow: 2px 2px 8px rgba(0,0,0,0.4);
+    }
+
+    .filters-container {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 40px;
+      flex-wrap: wrap;
+    }
+
+    .filter-group-card {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 15px;
+      padding: 15px 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    .filter-group-card .chart-type-controls,
+    .filter-group-card .time-period-controls {
+      gap: 15px;
+    }
+
+    .chart-btn, .period-btn {
+      background: #3A3D75;
+      color: white;
+      border: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+    }
+
+    /* Estilo para o novo dropdown de Modo de Produção */
+    .production-mode-selector,
+    .data-type-selector {
+      position: relative;
+    }
+
+    .production-mode-options {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      background: #2C2E54;
+      border: 2px solid #3A3D75;
+      border-radius: 15px;
+      padding: 10px;
+      margin-top: 10px;
+      z-index: 10;
+      min-width: 100%;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+    }
+    
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+
+    @media (max-width: 1024px) {
+      .main-content {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    @media (max-width: 768px) {
+      .container {
+        padding: 15px;
+      }
+      
+      h1 {
+        font-size: 2.2rem;
+      }
+      
+      .datetime {
+        font-size: 1.2rem;
+      }
+      
+      .current-info {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+      
+      .info-card {
+        padding: 25px;
+      }
+      
+      .counter-value {
+        font-size: 3rem;
+      }
+      
+      .shift-name {
+        font-size: 1.6rem;
+      }
+      
+      .section-title {
+        font-size: 1.5rem;
+      }
+    }
+
+    /* Estilos para o card de registro de perdas */
+    .loss-form-container {
+      margin-top: 20px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 15px;
+    }
+
+    .form-label {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #e8e8e8;
+      margin-bottom: 8px;
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    .loss-qty-input,
+    .loss-date-input,
+    .loss-shift-select {
+      padding: 10px 12px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.95);
+      color: #2c3e50;
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+      outline: none;
+      width: 100%;
+    }
+
+    .loss-qty-input:focus,
+    .loss-date-input:focus,
+    .loss-shift-select:focus {
+      border-color: #667eea;
+      box-shadow: 0 6px 25px rgba(102, 126, 234, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .loss-qty-input::placeholder {
+      color: #7f8c8d;
+      font-weight: 400;
+    }
+
+    .loss-shift-select {
+      cursor: pointer;
+    }
+
+    .loss-shift-select option {
+      background: white;
+      color: #2c3e50;
+      padding: 8px;
+    }
+
+    .loss-submit-container {
+      display: flex;
+      justify-content: center;
+      margin-top: 25px;
+    }
+
+    .loss-submit-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      border-radius: 12px;
+      padding: 12px 24px;
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .loss-submit-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 35px rgba(102, 126, 234, 0.6);
+      background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    }
+
+    .loss-submit-btn:active {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 25px rgba(102, 126, 234, 0.4);
+    }
+
+    .loss-submit-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+    }
+
+    .btn-text {
+      position: relative;
+      z-index: 2;
+    }
+
+    .btn-icon {
+      font-size: 1.2rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    .loss-submit-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.5s ease;
+    }
+
+    .loss-submit-btn:hover::before {
+      left: 100%;
+    }
+
+    /* Responsividade para dispositivos móveis */
+    @media (max-width: 768px) {
+      .current-shift-container {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+
+      .loss-qty-input,
+      .loss-date-input,
+      .loss-shift-select {
+        padding: 10px 14px;
+        font-size: 0.95rem;
+      }
+
+      .loss-submit-btn {
+        padding: 12px 20px;
+        font-size: 0.95rem;
+      }
+
+      .history-metrics {
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .history-metric {
+        min-width: 60px;
+      }
+
+      .metric-value {
+        font-size: 1.1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+    <h1>Sistema de Contador por Turnos<span id="connection-status" class="status-indicator"></span></h1>
+    <div id="datetime" class="datetime">--</div>
+    </div>
+    
+    <!-- Seção de Status em Tempo Real -->
+    <div class="realtime-section">
+      <h2 class="section-title">Status em Tempo Real</h2>
+      <div class="current-shift-container">
+        <!-- Card de Turno Atual -->
+        <div class="current-shift-card">
+          <div class="info-card">
+            <h3>Turno Atual</h3>
+            <div id="current-shift" class="shift-name">Carregando...</div>
+            <div id="current-shift-date" class="shift-date">--</div>
+            <div class="kpi-sub">Produção Bruta</div>
+            <div id="counter" class="counter-value">0</div>
+            <div class="kpi-sub">Meta Atingida: <span id="current-shift-goal-percentage">--%</span></div>
+            <div class="efficiency-bar" style="margin-top: 8px;"><div id="efficiency-fill" class="efficiency-bar-fill"></div></div>
+          </div>
+        </div>
+        
+        <!-- Card de Registro de Perdas -->
+        <div class="loss-registration-card">
+          <div class="info-card">
+            <h3>Registrar Perda</h3>
+            
+            <!-- Formulário de perda -->
+            <div class="loss-form-container">
+              <div class="form-group">
+                <label for="loss-qty" class="form-label">Quantidade</label>
+                <input id="loss-qty" type="number" min="1" placeholder="Ex: 5" class="loss-qty-input">
+              </div>
+              
+              <div class="form-group">
+                <label for="loss-date" class="form-label">Data</label>
+                <input id="loss-date" type="date" class="loss-date-input">
+              </div>
+              
+              <div class="form-group">
+                <label for="loss-shift-select" class="form-label">Turno</label>
+                <select id="loss-shift-select" class="loss-shift-select">
+                  <option value="">Selecione</option>
+                  <option value="Turno 1 (06:00 - 16:00 h)">Turno 1</option>
+                  <option value="Turno 2 (22:00 - 06:00 h)">Turno 2</option>
+                </select>
+              </div>
+              
+              
+              <!-- Botão de envio -->
+              <div class="loss-submit-container">
+                <button id="loss-submit" class="loss-submit-btn">
+                  <span class="btn-text">Registrar</span>
+                  <span class="btn-icon">📝</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="kpi-cards">
+        <div class="info-card">
+          <h3>Meta do Turno</h3>
+          <div id="kpi-meta-turno" class="kpi-value">--</div>
+          <div class="kpi-sub">Unidades</div>
+          <div class="goal-input-container">
+            <input type="number" id="goal-input" placeholder="Definir nova meta">
+            <button id="goal-submit-btn">Salvar</button>
+          </div>
+        </div>
+        <div class="info-card">
+          <h3>Produção Bruta</h3>
+          <div id="kpi-bruta" class="kpi-value">--</div>
+          <div class="kpi-sub">Unidades</div>
+        </div>
+        <div class="info-card">
+          <h3>Perdas</h3>
+          <div id="kpi-perdas" class="kpi-value">--</div>
+          <div class="kpi-sub">Unidades</div>
+        </div>
+        <div class="info-card">
+          <h3>Produção Líquida</h3>
+          <div id="kpi-liquida" class="kpi-value">--</div>
+          <div class="kpi-sub">Unidades</div>
+        </div>
+        <div class="info-card">
+          <h3>Meta do Turno Atingida (%)</h3>
+          <div class="kpi-value"><span id="kpi-eficiencia">--</span>%</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Seção de Análise Histórica -->
+    <div class="analysis-section">
+      <h2 class="section-title">Análise Histórica</h2>
+      <div class="performance-dashboard">
+        <h3 class="dashboard-title">📊 Evolução de Produção e Perdas</h3>
+        <div class="filters-container">
+          <div class="filter-group">
+            <div class="filter-group-label"><span>📊</span><span>Visualização</span></div>
+            <div class="filter-group-card">
+              <div class="chart-type-controls">
+                <button class="chart-btn active" onclick="switchChart('bar')"><span class="radio-icon"></span>Barras</button>
+                <button class="chart-btn" onclick="switchChart('line')"><span class="radio-icon"></span>Linha</button>
+              </div>
+            </div>
+          </div>
+          <div class="filter-group">
+            <div class="filter-group-label"><span>🗓️</span><span>Período</span></div>
+            <div class="filter-group-card">
+              <div class="time-period-controls">
+                <button class="period-btn active" onclick="switchTimePeriod('day')"><span class="radio-icon"></span>Dia</button>
+                <button class="period-btn" onclick="switchTimePeriod('week')"><span class="radio-icon"></span>Semana</button>
+                <button class="period-btn" onclick="switchTimePeriod('month')"><span class="radio-icon"></span>Mês</button>
+                <button class="period-btn" onclick="switchTimePeriod('year')"><span class="radio-icon"></span>Ano</button>
+              </div>
+            </div>
+          </div>
+          <div class="filter-group">
+            <div class="filter-group-label"><span>⚙️</span><span>Modo de Produção</span></div>
+            <div class="filter-group-card production-mode-selector">
+              <button id="production-mode-main-btn" class="chart-btn active"><span class="radio-icon"></span>Produção Total</button>
+              <div id="production-mode-options" class="production-mode-options">
+                <button class="period-btn active" onclick="switchProductionMode('total')"><span class="radio-icon"></span>Produção Total</button>
+                <button class="period-btn" onclick="switchProductionMode('turno1')"><span class="radio-icon"></span>Turno 1</button>
+                <button class="period-btn" onclick="switchProductionMode('turno2')"><span class="radio-icon"></span>Turno 2</button>
+                <button class="period-btn" onclick="switchProductionMode('ambos')"><span class="radio-icon"></span>Turnos 1 e 2</button>
+              </div>
+            </div>
+          </div>
+          <div class="filter-group">
+            <div class="filter-group-label"><span>📈</span><span>Tipo de Dado</span></div>
+            <div class="filter-group-card data-type-selector">
+              <button id="data-type-main-btn" class="chart-btn active"><span class="radio-icon"></span>Todos</button>
+              <div id="data-type-options" class="production-mode-options">
+                <button class="period-btn data-type-btn active" onclick="switchDataType('todos')"><span class="radio-icon"></span>Todos</button>
+                <button class="period-btn data-type-btn" onclick="switchDataType('bruta')"><span class="radio-icon"></span>Produção Bruta</button>
+                <button class="period-btn data-type-btn" onclick="switchDataType('perdas')"><span class="radio-icon"></span>Perdas</button>
+                <button class="period-btn data-type-btn" onclick="switchDataType('liquida')"><span class="radio-icon"></span>Produção Líquida</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <h3 id="chart-dynamic-title" class="subsection-title" style="text-align: center;"></h3>
+        <div class="chart-container" style="height: 400px;">
+          <canvas id="performanceChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Grid para Histórico e outros cards -->
+      <div class="main-content" style="margin-top: 40px;">
+        <div class="history-section">
+          <h3 class="subsection-title">Histórico de Turnos</h3>
+          <div class="history-container">
+            <div id="history-list">
+              <div class="no-history">Nenhum histórico disponível</div>
+            </div>
+          </div>
+        </div>
+        <div class="history-section">
+          <h3 class="subsection-title">Ranking por Eficiência (Hoje)</h3>
+          <div class="history-container">
+            <div id="ranking-list">
+              <div class="no-history">Sem dados de eficiência para hoje</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Linha 4: Alertas -->
+    <div class="analysis-section">
+      <h2 class="section-title">Alertas</h2>
+      <div class="history-section">
+        <div class="history-container">
+          <div id="alerts-list"><div class="no-history">Sem alertas no momento</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    const socket = io();
+    let performanceChart = null;
+    let efficiencyGauge = null;
+    let lossesPie = null;
+    let lastShiftKey = null;
+    let currentChartType = 'bar';
+    let currentProductionMode = 'total';
+    let currentDataType = 'todos';
+    let currentTimePeriod = 'day';
+
+    const datetimeDiv = document.getElementById('datetime');
+    const currentShiftDiv = document.getElementById('current-shift');
+    const currentShiftDateDiv = document.getElementById('current-shift-date');
+    const counterDiv = document.getElementById('counter');
+    const historyList = document.getElementById('history-list');
+    const connectionStatus = document.getElementById('connection-status');
+    // KPI elements
+    const kpiMetaTurno = document.getElementById('kpi-meta-turno');
+    const kpiBruta = document.getElementById('kpi-bruta');
+    const kpiPerdas = document.getElementById('kpi-perdas');
+    const kpiLiquida = document.getElementById('kpi-liquida');
+    const kpiEficiencia = document.getElementById('kpi-eficiencia');
+    const kpiProdutividade = document.getElementById('kpi-produtividade');
+    const efficiencyFill = document.getElementById('efficiency-fill');
+    const lossQty = document.getElementById('loss-qty');
+    const lossDate = document.getElementById('loss-date');
+    const lossShiftSelect = document.getElementById('loss-shift-select');
+    const lossSubmit = document.getElementById('loss-submit');
+
+    // Função para atualizar data e hora no formato DD/MM/YYYY - HH:mm
+    function updateDateTime() {
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      
+      datetimeDiv.textContent = `${day}/${month}/${year} - ${hours}:${minutes}`;
+    }
+
+    // Atualiza data/hora a cada segundo
+    updateDateTime();
+    setInterval(updateDateTime, 1000);
+
+    // Função para definir data padrão (hoje)
+    function setDefaultDate() {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      lossDate.value = `${year}-${month}-${day}`;
+    }
+
+    // Define data padrão ao carregar a página
+    setDefaultDate();
+
+
+    // Função para atualizar histórico
+    function updateHistory(history) {
+      if (!history || history.length === 0) {
+        historyList.innerHTML = '<div class="no-history">Nenhum histórico disponível</div>';
+        return;
+      }
+
+      // Agora as perdas já vêm integradas no histórico
+      historyList.innerHTML = history.map(item => {
+        const status = item.fim_turno ? 'Finalizado' : (item.inicio_turno ? 'Em andamento' : 'Não iniciado');
+        
+        return `
+          <div class="history-item">
+            <div class="history-main">
+              <div class="history-shift">${item.turno_nome}</div>
+              <div class="history-time">Data: ${item.data_turno}</div>
+              <div class="history-time">Início: ${item.inicio_turno || 'Não iniciado'}</div>
+              <div class="history-time">Fim: ${item.fim_turno || 'Em andamento'}</div>
+              <div class="history-time">Status: ${status}</div>
+            </div>
+            <div class="history-metrics">
+              <div class="history-metric">
+                <div class="metric-label">Produção</div>
+                <div class="metric-value production">${item.contador}</div>
+              </div>
+              <div class="history-metric">
+                <div class="metric-label">Perdas</div>
+                <div class="metric-value losses">${item.perdas}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Função para alternar período de tempo
+    function switchTimePeriod(period) {
+      currentTimePeriod = period;
+
+      const periodGroup = document.querySelector('.time-period-controls');
+      periodGroup.querySelectorAll('.period-btn').forEach(btn => btn.classList.remove('active'));
+      const targetButton = periodGroup.querySelector(`button[onclick="switchTimePeriod('${period}')"]`);
+      if (targetButton) targetButton.classList.add('active');
+
+      updateChart();
+    }
+
+    // Função para criar/atualizar gráfico
+    async function updateChart() {
+      const res = await fetch(`/metrics/performance?period=${currentTimePeriod}&mode=${currentProductionMode}`);
+      const jsonResponse = await res.json();
+      const history = jsonResponse.data;
+
+      if (!history || history.length === 0) {
+        if (performanceChart) {
+            performanceChart.destroy();
+        }
+        const ctx = document.getElementById('performanceChart').getContext('2d');
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.font = "16px Inter";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+        ctx.textAlign = "center";
+        ctx.fillText("Sem dados para o período selecionado.", ctx.canvas.width / 2, ctx.canvas.height / 2);
+        return;
+      }
+
+      const chartData = processPerformanceData(history, currentTimePeriod);
+      
+      if (chartData.labels.length === 0) return;
+
+      const ctx = document.getElementById('performanceChart').getContext('2d');
+
+      if (performanceChart) {
+        performanceChart.destroy();
+      }
+
+      let rotation = 0;
+      if (currentTimePeriod === 'day') rotation = 0;
+      else if (currentTimePeriod === 'week') rotation = 45;
+      else if (currentTimePeriod === 'month') rotation = 45;
+      else if (currentTimePeriod === 'year') rotation = 0;
+
+      const periodTitleMap = {
+        'day': 'Diária',
+        'week': 'Semanal',
+        'month': 'Mensal',
+        'year': 'Anual'
+      };
+      const modeTitleMap = {
+        'total': 'Produção Total',
+        'turno1': 'Turno 1',
+        'turno2': 'Turno 2',
+        'ambos': 'Turnos 1 e 2'
+      };
+      document.getElementById('chart-dynamic-title').textContent = `Evolução ${periodTitleMap[currentTimePeriod]} — ${modeTitleMap[currentProductionMode]}`;
+
+      let datasets = [];
+      if (currentProductionMode === 'total' || currentProductionMode === 'turno1' || currentProductionMode === 'turno2') {
+        const colorKey = currentProductionMode === 'turno2' ? 't2' : 't1'; // 'total' usa as cores de 't1'
+        datasets.push({
+            label: 'Produção',
+            data: chartData.productionData,
+            backgroundColor: colorKey === 't1' ? '#0D47A1' : '#64B5F6', // Bruta (Azul)
+            borderColor: colorKey === 't1' ? '#0D47A1' : '#64B5F6',
+            borderWidth: 2,
+            tension: currentChartType === 'line' ? 0.4 : 0,
+            yAxisID: 'y'
+        });
+        datasets.push({
+            label: 'Perdas',
+            data: chartData.lossesData,
+            backgroundColor: colorKey === 't1' ? '#B71C1C' : '#E57373', // Perdas (Vermelho)
+            borderColor: colorKey === 't1' ? '#B71C1C' : '#E57373',
+            borderWidth: 2,
+            tension: currentChartType === 'line' ? 0.4 : 0,
+            yAxisID: 'y'
+        });
+        datasets.push({
+            label: 'Produção Líquida',
+            data: chartData.netProductionData,
+            backgroundColor: colorKey === 't1' ? '#1B5E20' : '#81C784', // Líquida (Verde)
+            borderColor: colorKey === 't1' ? '#1B5E20' : '#81C784',
+            borderWidth: 2,
+            tension: currentChartType === 'line' ? 0.4 : 0,
+            yAxisID: 'y'
+        });
+      } else if (currentProductionMode === 'ambos') {
+        datasets.push({
+            label: 'Produção T1',
+            data: chartData.t1_productionData,
+            backgroundColor: '#0D47A1', // Bruta T1 (Azul Escuro)
+            borderColor: '#0D47A1',
+            borderWidth: 2,
+            tension: currentChartType === 'line' ? 0.4 : 0,
+            yAxisID: 'y'
+        });
+        datasets.push({
+            label: 'Perdas T1',
+            data: chartData.t1_lossesData,
+            backgroundColor: '#B71C1C', // Perdas T1 (Vermelho Escuro)
+            borderColor: '#B71C1C',
+            borderDash: [5, 5],
+            borderWidth: 2,
+            tension: currentChartType === 'line' ? 0.4 : 0,
+            yAxisID: 'y'
+        });
+        datasets.push({
+            label: 'Produção T2',
+            data: chartData.t2_productionData,
+            backgroundColor: '#64B5F6', // Bruta T2 (Azul Claro)
+            borderColor: '#64B5F6',
+            borderWidth: 2,
+            tension: currentChartType === 'line' ? 0.4 : 0,
+            yAxisID: 'y'
+        });
+        datasets.push({
+            label: 'Perdas T2',
+            data: chartData.t2_lossesData,
+            backgroundColor: '#E57373', // Perdas T2 (Vermelho Claro)
+            borderColor: '#E57373',
+            borderDash: [5, 5],
+            borderWidth: 2,
+            tension: currentChartType === 'line' ? 0.4 : 0,
+            yAxisID: 'y'
+        });
+      }
+      let finalDatasets = datasets;
+      if (currentDataType !== 'todos') {
+        if (currentProductionMode === 'ambos') {
+          if (currentDataType === 'liquida') {
+            // Calcula a produção líquida sob demanda, sem alterar os dados originais
+            const liquidaT1Data = chartData.t1_productionData.map((bruta, i) => Math.max(0, bruta - (chartData.t1_lossesData[i] || 0)));
+            const liquidaT2Data = chartData.t2_productionData.map((bruta, i) => Math.max(0, bruta - (chartData.t2_lossesData[i] || 0)));
+            finalDatasets = [
+              // Cria novos datasets para a produção líquida
+              { ...datasets.find(d => d.label === 'Produção T1'), label: 'Líquida T1', data: liquidaT1Data, backgroundColor: '#1B5E20', borderColor: '#1B5E20' }, // Líquida T1 (Verde Escuro)
+              { ...datasets.find(d => d.label === 'Produção T2'), label: 'Líquida T2', data: liquidaT2Data, backgroundColor: '#81C784', borderColor: '#81C784' }  // Líquida T2 (Verde Claro)
+            ];
+          } else if (currentDataType === 'bruta') {
+            finalDatasets = datasets.filter(d => d.label.startsWith('Produção T'));
+          } else if (currentDataType === 'perdas') {
+            finalDatasets = datasets.filter(d => d.label.startsWith('Perdas T'));
+          }
+        } else {
+          if (currentDataType === 'bruta') {
+            finalDatasets = datasets.filter(d => d.label === 'Produção');
+          } else if (currentDataType === 'perdas') {
+            finalDatasets = datasets.filter(d => d.label === 'Perdas');
+          } else if (currentDataType === 'liquida') {
+            finalDatasets = datasets.filter(d => d.label === 'Produção Líquida');
+          }
+        }
+      }
+
+      const config = {
+        type: currentChartType,
+        data: {
+          labels: chartData.labels,
+          datasets: finalDatasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: { display: false }, // Desativa o título padrão do Chart.js
+            legend: {
+              labels: {
+                color: '#ffffff',
+                font: {
+                  family: 'Inter',
+                  size: 12
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                color: '#ffffff',
+                font: {
+                  family: 'JetBrains Mono',
+                  size: 11
+                },
+                stepSize: 1,
+                callback: function(value) {
+                  return Number.isInteger(value) ? value.toLocaleString('pt-BR') : null;
+                }
+              },
+              title: {
+                display: true,
+                text: 'Contagem de Eventos',
+                color: '#ffffff',
+                font: {
+                  family: 'Inter',
+                  size: 12,
+                  weight: 'bold'
+                }
+              },
+              grid: {
+                color: 'rgba(255, 255, 255, 0.1)'
+              }
+            },
+            x: {
+              ticks: {
+                color: '#ffffff',
+                font: {
+                  family: 'Inter',
+                  size: 10
+                },
+                maxRotation: rotation,
+                minRotation: rotation
+              },
+              grid: {
+                color: 'rgba(255, 255, 255, 0.1)'
+              }
+            }
+          },
+          animation: {
+            duration: 1000,
+            easing: 'easeInOutQuart'
+          }
+        }
+      };
+
+      performanceChart = new Chart(ctx, config);
+    }
+
+    function processPerformanceData(data, period) {
+      const labels = [];
+      const productionData = [];
+      const netProductionData = [];
+      const lossesData = [];
+      const t1_productionData = [];
+      const t1_lossesData = [];
+      const t2_productionData = [];
+      const t2_lossesData = [];
+
+      const groupedByPeriod = data.reduce((acc, item) => {
+          if (!acc[item.period_start]) {
+              acc[item.period_start] = [];
+          }
+          acc[item.period_start].push(item);
+          return acc;
+      }, {});
+
+      const sortedPeriods = Object.keys(groupedByPeriod).sort();
+
+      for (const periodStart of sortedPeriods) {
+          const items = groupedByPeriod[periodStart];
+          const date = new Date(periodStart);
+          let label = '';
+          if (period === 'day') label = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+          else if (period === 'week') label = `Semana ${date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`;
+          else if (period === 'month') label = date.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+          else if (period === 'year') label = date.getFullYear().toString();
+          labels.push(label);
+
+          if (currentProductionMode === 'ambos') {
+              const t1_item = items.find(i => i.turno_nome.startsWith('Turno 1'));
+              const t2_item = items.find(i => i.turno_nome.startsWith('Turno 2'));
+              t1_productionData.push(t1_item ? t1_item.total_producao : 0);
+              t1_lossesData.push(t1_item ? t1_item.total_perdas : 0);
+              t2_productionData.push(t2_item ? t2_item.total_producao : 0);
+              t2_lossesData.push(t2_item ? t2_item.total_perdas : 0);
+          } else {
+              const totalProd = items.reduce((sum, i) => sum + i.total_producao, 0);
+              const totalLoss = items.reduce((sum, i) => sum + i.total_perdas, 0);
+              productionData.push(totalProd);
+              lossesData.push(totalLoss);
+              netProductionData.push(Math.max(0, totalProd - totalLoss));
+          }
+      }
+
+      return { 
+        labels, 
+        productionData, 
+        lossesData, 
+        netProductionData,
+        t1_productionData,
+        t1_lossesData,
+        t2_productionData,
+        t2_lossesData
+      };
+    }
+
+    // Função para alternar tipo de gráfico
+    function switchChart(type) {
+      currentChartType = type;
+
+      const vizGroup = document.querySelector('.chart-type-controls');
+      vizGroup.querySelectorAll('.chart-btn').forEach(btn => btn.classList.remove('active'));
+      const targetButton = vizGroup.querySelector(`button[onclick="switchChart('${type}')"]`);
+      if (targetButton) targetButton.classList.add('active');
+
+      updateChart();
+    }
+
+    // Função para alternar modo de produção
+    function switchProductionMode(mode) {
+      currentProductionMode = mode;
+      const options = document.getElementById('production-mode-options');
+      const mainButton = document.getElementById('production-mode-main-btn');
+
+      const selectedOption = document.querySelector(`.production-mode-options button[onclick="switchProductionMode('${mode}')"]`);
+      mainButton.innerHTML = selectedOption.innerHTML;
+      options.style.display = 'none';
+
+      if (mode === 'total') {
+        mainButton.classList.remove('active');
+      } else {
+        mainButton.classList.add('active');
+      }
+
+      document.querySelectorAll('.production-mode-options button').forEach(btn => btn.classList.remove('active'));
+      selectedOption.classList.add('active');
+
+      updateChart();
+    }
+
+    // Função para alternar tipo de dado
+    function switchDataType(type) {
+        currentDataType = type;
+        const optionsContainer = document.getElementById('data-type-options');
+        const mainButton = document.getElementById('data-type-main-btn');
+        
+        const selectedOption = document.querySelector(`#data-type-options button[onclick="switchDataType('${type}')"]`);
+        mainButton.innerHTML = selectedOption.innerHTML;
+        optionsContainer.style.display = 'none';
+
+        // Gerencia a classe 'active' para o botão principal
+        if (type === 'todos') {
+          mainButton.classList.remove('active');
+        } else {
+          mainButton.classList.add('active');
+        }
+
+        document.querySelectorAll('#data-type-options button').forEach(btn => btn.classList.remove('active'));
+        selectedOption.classList.add('active');
+
+        updateChart();
+    }
+
+    async function fetchCurrentShiftKey() {
+      try {
+        const res = await fetch('/debug_status');
+        const json = await res.json();
+        if (json && json.shift_key) {
+          lastShiftKey = json.shift_key;
+          return json.shift_key;
+        }
+      } catch (e) { console.error(e); }
+      return null;
+    }
+
+    function parseShiftKey(shiftKey) {
+      // formato: "Turno X (...) - YYYY-MM-DD"
+      if (!shiftKey) return { turno_nome: null, data_turno: null };
+      const idx = shiftKey.lastIndexOf(' - ');
+      if (idx === -1) return { turno_nome: null, data_turno: null };
+      return { turno_nome: shiftKey.slice(0, idx), data_turno: shiftKey.slice(idx + 3) };
+    }
+
+    async function loadKPIs() {
+      try {
+        const key = lastShiftKey || await fetchCurrentShiftKey();
+        const { turno_nome, data_turno } = parseShiftKey(key);
+        if (!turno_nome || !data_turno) return;
+        const res = await fetch(`/metrics/shift?turno_nome=${encodeURIComponent(turno_nome)}&data_turno=${encodeURIComponent(data_turno)}`);
+        const json = await res.json();
+        if (!json.ok) return;
+        const m = json.metrics;
+        kpiMetaTurno.textContent = m.meta_turno ?? '--';
+        kpiBruta.textContent = m.producao_bruta ?? '--';
+        kpiPerdas.textContent = m.perdas ?? '--';
+        kpiLiquida.textContent = m.producao_liquida ?? '--';
+        kpiEficiencia.textContent = (m.eficiencia ?? 0).toFixed(1);
+        document.getElementById('current-shift-goal-percentage').textContent = `${(m.eficiencia ?? 0).toFixed(1)}%`;
+        updateEfficiencyBar(m.eficiencia ?? 0);
+      } catch (e) { console.error(e); }
+    }
+
+    async function submitGoal() {
+      const goalInput = document.getElementById('goal-input');
+      const goalSubmitBtn = document.getElementById('goal-submit-btn');
+      const newGoal = parseInt(goalInput.value, 10);
+
+      if (isNaN(newGoal) || newGoal <= 0) {
+        alert('Por favor, insira um valor de meta válido.');
+        return;
+      }
+
+      const key = lastShiftKey || await fetchCurrentShiftKey();
+      if (!key) {
+        alert('Não há um turno ativo para definir a meta.');
+        return;
+      }
+      const { turno_nome, data_turno } = parseShiftKey(key);
+
+      goalSubmitBtn.disabled = true;
+      goalSubmitBtn.textContent = 'Salvando...';
+
+      try {
+        const res = await fetch('/admin/meta', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ turno_nome, data_turno, meta_turno: newGoal })
+        });
+        const json = await res.json();
+        if (json.ok) {
+          goalInput.value = '';
+          goalSubmitBtn.textContent = 'Salvo!';
+          await loadKPIs(); // Recarrega os KPIs para mostrar a nova meta
+          setTimeout(() => { goalSubmitBtn.textContent = 'Salvar'; goalSubmitBtn.disabled = false; }, 2000);
+        } else {
+          throw new Error(json.error || 'Erro desconhecido');
+        }
+      } catch (e) {
+        alert(`Erro ao salvar meta: ${e.message}`);
+        goalSubmitBtn.textContent = 'Salvar';
+        goalSubmitBtn.disabled = false;
+      }
+    }
+
+    function updateRanking(items) {
+      const el = document.getElementById('ranking-list');
+      if (!items || items.length === 0) {
+        el.innerHTML = '<div class="no-history">Sem dados de eficiência para hoje</div>';
+        return;
+      }
+      const rows = items.map((it, idx) => {
+        const pos = idx + 1;
+        const badge = pos === 1 ? '🥇' : pos === 2 ? '🥈' : pos === 3 ? '🥉' : `#${pos}`;
+        const efic = it.eficiencia != null ? it.eficiencia.toFixed(1) + '%' : '--';
+        return `
+          <div class="history-item">
+            <div>
+              <div class="history-shift">${badge} ${it.turno_nome}</div>
+              <div class="history-time">Bruta: ${it.producao_bruta} • Perdas: ${it.perdas} • Líquida: ${it.producao_liquida}</div>
+            </div>
+            <div class="history-count">${efic}</div>
+          </div>
+        `;
+      }).join('');
+      el.innerHTML = rows;
+    }
+
+    function updateEfficiencyBar(efficiency) {
+      const val = Math.max(0, Math.min(100, efficiency || 0));
+      efficiencyFill.style.width = val + '%';
+      efficiencyFill.style.background = 'linear-gradient(90deg, #4D94FF 0%, #81C7F5 100%)';
+    }
+
+    function scheduleRefresh() {
+      loadKPIs();
+      // As funções loadAggregates e loadRanking foram removidas para simplificar, mas podem ser reativadas se necessário.
+      updateAlerts();
+    }
+
+    function updateAlerts() {
+      const el = document.getElementById('alerts-list');
+      // Simple client-side rules using last KPI values on screen
+      const eficienciaStr = (document.getElementById('kpi-eficiencia')?.textContent || '0').replace(',', '.');
+      const perdasStr = (document.getElementById('kpi-perdas')?.textContent || '0').replace(',', '.');
+      const liquidaStr = (document.getElementById('kpi-liquida')?.textContent || '0').replace(',', '.');
+      const eficiencia = parseFloat(eficienciaStr) || 0;
+      const perdas = parseInt(perdasStr, 10) || 0;
+      const liquida = parseInt(liquidaStr, 10) || 0;
+      const alerts = [];
+      if (eficiencia < 70) alerts.push('Eficiência baixa (< 70%).');
+      if (perdas > Math.max(5, Math.round(0.1 * (perdas + liquida)))) alerts.push('Perdas altas (> 10% do bruto aproximado).');
+      if (alerts.length === 0) {
+        el.innerHTML = '<div class="no-history">Sem alertas no momento</div>';
+      } else {
+        el.innerHTML = alerts.map(a => `<div class="history-item"><div class="history-shift">⚠️ Alerta</div><div class="history-time">${a}</div></div>`).join('');
+      }
+    }
+
+    async function submitLoss() {
+      try {
+        const quantidade = parseInt(lossQty.value, 10);
+        const data_turno = lossDate.value;
+        const turno_nome = lossShiftSelect.value;
+        
+        // Log para debug
+        console.log('Dados da perda:', { quantidade, data_turno, turno_nome });
+        
+        // Validações
+        if (!quantidade || quantidade <= 0) {
+          alert('Por favor, insira uma quantidade válida de perdas.');
+          return;
+        }
+        
+        if (!data_turno) {
+          alert('Por favor, selecione a data da perda.');
+          return;
+        }
+        
+        if (!turno_nome) {
+          alert('Por favor, selecione o turno da perda.');
+          return;
+        }
+        
+        // Desabilita o botão durante o envio
+        lossSubmit.disabled = true;
+        lossSubmit.innerHTML = '<span class="btn-text">Registrando...</span><span class="btn-icon">⏳</span>';
+        
+        const requestData = { turno_nome, data_turno, quantidade };
+        console.log('Enviando dados:', requestData);
+        
+        const res = await fetch('/admin/perda', {
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestData)
+        });
+        
+        const json = await res.json();
+        console.log('Resposta do servidor:', json);
+        
+        if (json.ok) {
+          // Limpa o formulário
+          lossQty.value = '';
+          setDefaultDate(); // Reseta para data atual
+          lossShiftSelect.value = '';
+          
+          scheduleRefresh();
+          
+          // Feedback visual de sucesso
+          lossSubmit.innerHTML = '<span class="btn-text">✓ Registrado!</span><span class="btn-icon">✅</span>';
+          setTimeout(() => {
+            lossSubmit.innerHTML = '<span class="btn-text">Registrar</span><span class="btn-icon">📝</span>';
+            lossSubmit.disabled = false;
+          }, 2000);
+        } else {
+          alert(`Erro ao registrar perda: ${json.error || 'Erro desconhecido'}`);
+          lossSubmit.innerHTML = '<span class="btn-text">Registrar</span><span class="btn-icon">📝</span>';
+          lossSubmit.disabled = false;
+        }
+      } catch (e) { 
+        console.error('Erro na função submitLoss:', e);
+        alert('Erro de conexão. Tente novamente.');
+        lossSubmit.innerHTML = '<span class="btn-text">Registrar</span><span class="btn-icon">📝</span>';
+        lossSubmit.disabled = false;
+      }
+    }
+    lossSubmit && lossSubmit.addEventListener('click', submitLoss);
+    socket.on('connect', () => {
+      console.log('Conectado ao servidor');
+      connectionStatus.classList.remove('offline');
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Desconectado do servidor');
+      connectionStatus.classList.add('offline');
+    });
+
+    socket.on('status', data => {
+      // Atualiza contador com animação
+      const currentCount = parseInt(counterDiv.textContent) || 0;
+      if (data.count !== currentCount) {
+        counterDiv.textContent = data.count || 0;
+        counterDiv.classList.add('updated');
+        setTimeout(() => counterDiv.classList.remove('updated'), 600);
+      }
+
+      // Atualiza turno atual
+      if (data.current_shift) {
+        currentShiftDiv.textContent = data.current_shift;
+        currentShiftDiv.classList.remove('no-shift');
+        
+        // Extrai a data do turno atual
+        const now = new Date();
+        const day = String(now.getDate()).padStart(2, '0');
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const year = now.getFullYear();
+        currentShiftDateDiv.textContent = `${day}/${month}/${year}`;
+      } else {
+        currentShiftDiv.textContent = 'Fora do horário de turnos';
+        currentShiftDiv.classList.add('no-shift');
+        currentShiftDateDiv.textContent = '--';
+      }
+
+      // Atualiza histórico e gráfico
+      updateHistory(data.history);
+      updateChart(); // Agora busca os dados da API
+      fetchCurrentShiftKey();
+      scheduleRefresh();
+    });
+
+    // Lógica para o dropdown de modo de produção
+    document.addEventListener('DOMContentLoaded', () => {
+      const prodModeMainButton = document.getElementById('production-mode-main-btn');
+      const prodModeOptions = document.getElementById('production-mode-options');
+      const dataTypeMainButton = document.getElementById('data-type-main-btn');
+      const dataTypeOptions = document.getElementById('data-type-options');
+
+      prodModeMainButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        prodModeOptions.style.display = prodModeOptions.style.display === 'block' ? 'none' : 'block';
+        dataTypeOptions.style.display = 'none'; // Fecha o outro menu
+      });
+
+      dataTypeMainButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        dataTypeOptions.style.display = dataTypeOptions.style.display === 'block' ? 'none' : 'block';
+        prodModeOptions.style.display = 'none'; // Fecha o outro menu
+      });
+
+      document.addEventListener('click', (event) => {
+        prodModeOptions.style.display = 'none';
+        dataTypeOptions.style.display = 'none';
+      });
+
+      document.getElementById('goal-submit-btn')?.addEventListener('click', submitGoal);
+    });
+
+    // Solicita dados iniciais
+    socket.emit('request_initial_data');
+    setInterval(scheduleRefresh, 15000);
+  </script>
+</body>
+</html>
