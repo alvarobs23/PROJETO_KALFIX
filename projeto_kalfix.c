@@ -8,19 +8,19 @@
 
 // Configurações de rede 
 #ifndef WIFI_SSID
-#define WIFI_SSID "SILVA"
+#define WIFI_SSID "KALFIX"
 #endif
 #ifndef WIFI_PASSWORD  
-#define WIFI_PASSWORD "a1l9v7r8o"
+#define WIFI_PASSWORD "9988776655"
 #endif
 
 // Configurações do servidor
-#define HOST        "10.43.11.109"  // IP do seu servidor Flask
+#define HOST        "10.78.166.109" 
 #define PORT        5000
 #define INTERVALO_MS 500
 
 // Configurações de hardware
-#define GPIO_MONITOR    6// Pino para monitorar sinal HIGH
+#define GPIO_MONITOR    20// Pino para monitorar sinal HIGH
 
 
 
@@ -66,11 +66,13 @@ int main() {
     }
     
     cyw43_arch_enable_sta_mode();
-    if (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD,
-                                           CYW43_AUTH_WPA2_AES_PSK, 10000)) {
-    printf("Falha na conexão Wi-Fi\n");
-        return 1;
+
+    printf("Conectando ao Wi-Fi: %s...\n", WIFI_SSID);
+    while (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, 10000) != 0) {
+        printf("Falha ao conectar. Tentando novamente em 5 segundos...\n");
+        sleep_ms(5000);
     }
+
 
     // Exibe IP obtido
     printf("Conectado! IP: %s\n", ip4addr_ntoa(netif_ip4_addr(netif_list)));
@@ -111,38 +113,6 @@ int main() {
         sleep_ms(5);  //
     }
 
-    /* ========== VERSÃO COM DEBOUNCE AVANÇADO (comentada) ==========
-    int last_btn = 1;
-    uint32_t last_change_time = 0;
-    const uint32_t DEBOUNCE_MS = 20;
-    bool button_sent = false;
-
-    while (1) {
-        int btn = gpio_get(BUTTON_A);
-        uint32_t current_time = to_ms_since_boot(get_absolute_time());
-        
-        gpio_put(LED_RED, btn == 0);
-
-        if (btn != last_btn) {
-            if (current_time - last_change_time > DEBOUNCE_MS) {
-                if (btn == 0 && !button_sent) {
-                    printf("CLIQUE DETECTADO! (tempo: %lu ms)\n", current_time);
-                    send_button_press(0);
-                    button_sent = true;
-                }
-                
-                if (btn == 1) {
-                    button_sent = false;
-                    printf("Botão solto - pronto para próximo clique\n");
-                }
-                
-                last_btn = btn;
-                last_change_time = current_time;
-            }
-        }
-        sleep_ms(5);
-    }
-    ============================================================== */
 
     cyw43_arch_deinit();
     return 0;

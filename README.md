@@ -1,419 +1,153 @@
-# 🏭 Sistema de Contador por Turnos - Projeto Kalfix
+# Sistema de Contador de Produção com Raspberry Pi Pico W (projeto_kalfix)
 
-Um sistema completo de monitoramento e contagem de eventos em tempo real, desenvolvido para ambientes industriais com controle por turnos. O projeto combina hardware embarcado (Raspberry Pi Pico W) com uma aplicação web moderna para fornecer monitoramento contínuo e análise histórica.
+Este projeto implementa um sistema completo para monitorar a produção em tempo real. Uma placa Raspberry Pi Pico W detecta sinais de um sensor (ou botão) em uma de suas portas GPIO, contabiliza os eventos e envia os dados para um servidor web. O servidor, construído com Flask e Socket.IO, armazena os dados em um banco de dados PostgreSQL e exibe as informações em um dashboard web interativo e em tempo real.
 
-## 📋 Índice
+## 🚀 Funcionalidades
 
-- [Visão Geral](#-visão-geral)
-- [Arquitetura do Sistema](#-arquitetura-do-sistema)
-- [Funcionalidades](#-funcionalidades)
-- [Tecnologias Utilizadas](#-tecnologias-utilizadas)
-- [Estrutura do Projeto](#-estrutura-do-projeto)
-- [Instalação e Configuração](#-instalação-e-configuração)
-- [Uso](#-uso)
-- [API Endpoints](#-api-endpoints)
-- [Configuração de Rede](#-configuração-de-rede)
-- [Banco de Dados](#-banco-de-dados)
-- [Monitoramento](#-monitoramento)
-- [Troubleshooting](#-troubleshooting)
-- [Contribuição](#-contribuição)
-- [Licença](#-licença)
+- **Contagem em Tempo Real:** O Pico W detecta eventos (borda de descida no pino GPIO 20) e envia a contagem atualizada instantaneamente.
+- **Dashboard Web:** Uma interface web moderna exibe o contador atual, o turno de produção, histórico de contagens, metas e outras métricas.
+- **Gerenciamento de Turnos:** O servidor organiza a contagem com base em turnos de trabalho pré-definidos.
+- **Persistência de Dados:** Todas as contagens e informações de turno são armazenadas em um banco de dados PostgreSQL.
+- **Comunicação via Wi-Fi:** O Pico W se conecta à rede local via Wi-Fi para se comunicar com o servidor.
+- **Análise Histórica:** O dashboard apresenta gráficos para análise de produção e perdas ao longo do tempo.
 
-## 🎯 Visão Geral
+## 🛠️ Arquitetura
 
-O Sistema de Contador por Turnos é uma solução IoT completa que monitora eventos físicos através de sensores conectados ao Raspberry Pi Pico W, enviando dados em tempo real para um servidor web que gerencia turnos de trabalho e armazena histórico em banco de dados PostgreSQL.
+O sistema é composto por três partes principais:
 
-### Principais Características:
-- ⚡ **Monitoramento em Tempo Real**: Detecção instantânea de eventos via GPIO
-- 🔄 **Gestão Automática de Turnos**: Sistema inteligente de turnos (06:00-16:00 e 22:00-06:00)
-- 📊 **Dashboard Interativo**: Interface web moderna com gráficos e análises
-- 💾 **Persistência de Dados**: Armazenamento seguro em PostgreSQL
-- 🌐 **Comunicação Wi-Fi**: Conectividade sem fio para flexibilidade de instalação
-- 📱 **Interface Responsiva**: Acesso via qualquer dispositivo com navegador
+1.  **Firmware (Raspberry Pi Pico W):**
+    - Escrito em C/C++.
+    - Conecta-se a uma rede Wi-Fi.
+    - Monitora o pino `GPIO 20` para detectar sinais (quando o pino vai de HIGH para LOW).
+    - A cada sinal detectado, incrementa um contador e envia o valor total para o servidor via uma requisição HTTP GET.
 
-## 🏗️ Arquitetura do Sistema
+2.  **Backend (Servidor Flask):**
+    - Escrito em Python usando o framework Flask.
+    - Recebe os dados do Pico W através de um endpoint `/update`.
+    - Gerencia a lógica de turnos com base no horário.
+    - Armazena e recupera os dados de um banco de dados PostgreSQL.
+    - Usa Socket.IO para enviar atualizações em tempo real para todos os clientes (navegadores) conectados.
 
-```
-┌─────────────────┐    Wi-Fi    ┌─────────────────┐    HTTP    ┌─────────────────┐
-│                 │ ──────────► │                 │ ─────────► │                 │
-│ Raspberry Pi    │             │ Servidor Flask  │            │ PostgreSQL      │
-│ Pico W          │             │ + Socket.IO     │            │ Database        │
-│                 │             │                 │            │                 │
-│ • GPIO Monitor  │             │ • API REST      │            │ • Turnos        │
-│ • Wi-Fi Client  │             │ • WebSocket     │            │ • Histórico     │
-│ • HTTP Client   │             │ • Dashboard     │            │ • Contadores    │
-└─────────────────┘             └─────────────────┘            └─────────────────┘
-```
+3.  **Frontend (Dashboard Web):**
+    - Construído com HTML, CSS e JavaScript.
+    - Conecta-se ao servidor via Socket.IO para receber atualizações.
+    - Exibe os dados de forma visual, com contadores, gráficos e tabelas de histórico.
 
-## ✨ Funcionalidades
+## ✅ Pré-requisitos
 
-### Hardware (Raspberry Pi Pico W)
-- **Monitoramento GPIO**: Detecção de sinais HIGH/LOW no pino 20
-- **Debounce Inteligente**: Filtragem de ruídos para evitar contagens falsas
-- **Conectividade Wi-Fi**: Conexão automática à rede configurada
-- **Comunicação HTTP**: Envio de dados para servidor em tempo real
-- **LED de Status**: Indicador visual de funcionamento
-
-### Software (Servidor Web)
-- **Dashboard em Tempo Real**: Interface moderna com atualizações instantâneas
-- **Gestão de Turnos**: Controle automático baseado em horários
-- **Análise Histórica**: Gráficos interativos por período (dia/semana/mês/ano)
-- **Persistência de Dados**: Armazenamento seguro em PostgreSQL
-- **API REST**: Endpoints para integração com outros sistemas
-- **WebSocket**: Comunicação bidirecional em tempo real
-
-## 🛠️ Tecnologias Utilizadas
+Antes de começar, garanta que você tenha o seguinte:
 
 ### Hardware
-- **Raspberry Pi Pico W**: Microcontrolador ARM Cortex-M0+ com Wi-Fi
-- **Pico SDK**: Framework oficial para desenvolvimento
-- **C/C++**: Linguagem de programação para firmware
-- **GPIO**: Interface de entrada/saída para sensores
+- Raspberry Pi Pico W.
+- Um computador para rodar o servidor Flask (Windows, macOS ou Linux).
+- Um sensor com saída digital ou um botão (para conectar ao Pico W).
+- Cabo Micro-USB.
 
-### Backend
-- **Python 3.8+**: Linguagem principal
-- **Flask**: Framework web minimalista
-- **Flask-SocketIO**: WebSocket para comunicação em tempo real
-- **PostgreSQL**: Banco de dados relacional
-- **psycopg2**: Driver PostgreSQL para Python
-
-### Frontend
-- **HTML5/CSS3**: Estrutura e estilização
-- **JavaScript ES6+**: Lógica de interface
-- **Chart.js**: Biblioteca de gráficos interativos
-- **Socket.IO Client**: Cliente WebSocket
-- **Design Responsivo**: Interface adaptável a diferentes dispositivos
-
-### DevOps
-- **CMake**: Sistema de build para firmware
-- **Git**: Controle de versão
-- **Environment Variables**: Configuração segura
-
-## 📁 Estrutura do Projeto
-
-```
-projeto_kalfix/
-├── 📁 build/                          # Arquivos de compilação
-├── 📁 images/                         # Documentação visual
-├── 📁 web/                            # Aplicação web
-│   ├── 📄 app.py                      # Aplicação Flask principal
-│   ├── 📄 config.py                   # Configurações
-│   ├── 📄 database.py                # Gerenciamento de banco
-│   ├── 📄 server.py                   # Servidor principal
-│   └── 📁 templates/
-│       └── 📄 index.html              # Interface web
-├── 📄 CMakeLists.txt                  # Configuração de build
-├── 📄 projeto_kalfix.c               # Firmware principal
-├── 📄 example_http_client_util.c     # Utilitários HTTP
-├── 📄 example_http_client_util.h     # Headers HTTP
-├── 📄 lwipopts.h                      # Configurações LwIP
-├── 📄 mbedtls_config.h               # Configurações TLS
-└── 📄 README.md                       # Este arquivo
-```
-
-## 🚀 Instalação e Configuração
-
-### Pré-requisitos
-
-#### Hardware
-- Raspberry Pi Pico W
-- Cabo USB-C para programação
-- Sensor/conector para GPIO 20
-- Fonte de alimentação adequada
-
-#### Software
-- **Para Firmware**:
-  - Pico SDK 1.5.1+
-  - CMake 3.13+
+### Software
+- **Python 3.8+** e **pip**.
+- **PostgreSQL** (versão 12 ou superior) instalado e em execução.
+- **Git** para clonar o repositório.
+- **Ambiente de desenvolvimento C/C++ para Raspberry Pi Pico:**
+  - Pico C/C++ SDK
+  - CMake
   - Compilador ARM GCC
-  - picotool 2.0.0+
+  - (Recomendado) Visual Studio Code com a extensão Raspberry Pi Pico/RP2040.
 
-- **Para Servidor Web**:
-  - Python 3.8+
-  - PostgreSQL 12+
-  - pip (gerenciador de pacotes Python)
+## ⚙️ Guia de Instalação e Configuração
 
-### Instalação do Firmware
+Siga os passos abaixo para configurar e executar o projeto.
 
-1. **Clone o repositório**:
+### 1. Clone o Repositório
+
 ```bash
-git clone <url-do-repositorio>
+git clone <URL_DO_SEU_REPOSITORIO>
 cd projeto_kalfix
 ```
 
-2. **Configure as credenciais Wi-Fi** no `CMakeLists.txt`:
-```cmake
-set(WIFI_SSID "Sua_Rede_WiFi")
-set(WIFI_PASSWORD "Sua_Senha_WiFi")
-```
+### 2. Configuração do Backend (Servidor Flask)
 
-3. **Configure o IP do servidor** no `projeto_kalfix.c`:
-```c
-#define HOST "192.168.1.100"  // IP do seu servidor Flask
-#define PORT 5000
-```
+Nesta etapa, vamos configurar o servidor web que receberá os dados do Pico.
 
-4. **Compile o firmware**:
-```bash
-mkdir build
-cd build
-cmake ..
-make -j4
-```
+1.  **Navegue até a pasta `web`:**
+    ```bash
+    cd web
+    ```
 
-5. **Flash no Pico W**:
-```bash
-picotool load projeto_kalfix.uf2
-```
+2.  **Crie e ative um ambiente virtual Python:**
+    ```bat
+    rem No Prompt de Comando (cmd.exe) do Windows:
+    python -m venv venv
+    venv\Scripts\activate
+    ```
 
-### Instalação do Servidor Web
+3.  **Instale as dependências Python:**
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-1. **Instale as dependências Python**:
-```bash
-cd web
-pip install -r requirements.txt
-```
+4.  **Configure o Banco de Dados PostgreSQL:**
+    - Crie um banco de dados para o projeto. Ex: `dados_contagem`.
+    - Crie um usuário e senha para acessar este banco de dados.
 
-2. **Configure o banco PostgreSQL**:
-```sql
-CREATE DATABASE dados_contagem;
-CREATE USER kalfix_user WITH PASSWORD 'sua_senha';
-GRANT ALL PRIVILEGES ON DATABASE dados_contagem TO kalfix_user;
-```
+5.  **Configure as Variáveis de Ambiente:**
+    - Na pasta `web`, crie um arquivo chamado `.env`.
+    - Adicione as seguintes variáveis, substituindo pelos seus valores. O `FLASK_SERVER_HOST` deve ser o IP do computador que está rodando o servidor na sua rede local.
 
-3. **Configure as variáveis de ambiente**:
-```bash
-# Crie um arquivo .env na pasta web/
-DATABASE_URL=postgresql://kalfix_user:sua_senha@localhost/dados_contagem
-FLASK_SERVER_HOST=0.0.0.0
-FLASK_SERVER_PORT=5000
-DB_NAME=dados_contagem
-IGNORE_SHIFT_CHECK=false
-```
+    ```ini
+    # Exemplo de arquivo .env
+    DATABASE_URL="postgresql://SEU_USUARIO:SUA_SENHA@localhost:5432/dados_contagem"
+    DB_NAME="dados_contagem"
+    FLASK_SERVER_HOST="192.168.1.10" # IP do seu computador na rede local
+    FLASK_SERVER_PORT=5000
+    ```
 
-4. **Execute o servidor**:
-```bash
-python server.py
-```
+6.  **Inicie o Servidor:**
+    ```bash
+    python server.py
+    ```
+    - O servidor iniciará e criará as tabelas no banco de dados automaticamente.
+    - Acesse `http://SEU_IP:5000` em um navegador na mesma rede para ver o dashboard.
 
-## 📖 Uso
+### 3. Configuração do Firmware (Raspberry Pi Pico W)
 
-### Inicialização do Sistema
+Agora, vamos configurar e gravar o código na sua placa.
 
-1. **Conecte o hardware**: Conecte o sensor ao GPIO 20 do Pico W
-2. **Alimente o dispositivo**: Conecte via USB ou fonte externa
-3. **Inicie o servidor**: Execute `python server.py` na pasta web/
-4. **Acesse o dashboard**: Abra `http://seu-servidor:5000` no navegador
+1.  **Abra o arquivo `projeto_kalfix.c`:**
+    - Localize o arquivo na raiz do projeto.
 
-### Monitoramento
+2.  **Modifique as Configurações de Rede e Servidor:**
+    - Altere `WIFI_SSID` e `WIFI_PASSWORD` para corresponder à sua rede Wi-Fi.
+    - Altere `HOST` para o mesmo endereço IP que você definiu em `FLASK_SERVER_HOST` no arquivo `.env` do servidor.
 
-- **Status em Tempo Real**: O dashboard mostra o contador atual e turno ativo
-- **Histórico**: Visualize dados históricos por período
-- **Gráficos**: Análise visual com diferentes tipos de visualização
-- **Logs**: Monitore eventos no terminal do servidor
+    ```c
+    // c:\Users\alvaro\kalfix\projeto_kalfix\projeto_kalfix.c
 
-### Gestão de Turnos
+    // ...
+    // Configurações de rede (MODIFICAR)
+    #ifndef WIFI_SSID
+    #define WIFI_SSID "NOME_DA_SUA_REDE_WIFI"
+    #endif
+    #ifndef WIFI_PASSWORD  
+    #define WIFI_PASSWORD "SENHA_DA_SUA_REDE_WIFI"
+    #endif
 
-O sistema gerencia automaticamente dois turnos:
-- **Turno 1**: 06:00 às 16:00
-- **Turno 2**: 22:00 às 06:00 (do dia seguinte)
-- **Fora dos turnos**: 16:00 às 22:00 (sem contagem)
+    // Configurações do servidor (MODIFICAR)
+    #define HOST        "192.168.1.10" // IP do computador rodando o servidor Flask
+    #define PORT        5000
+    // ...
+    ```
 
-## 🔌 API Endpoints
+3.  **Compile e Grave o Firmware:**
+    - Se estiver usando VS Code com a extensão do Pico, o processo é simplificado:
+      - Selecione o kit de compilação correto (GCC for arm-none-eabi).
+      - Clique em "Build" na barra de status.
+      - Coloque o Pico em modo BOOTSEL (segure o botão BOOTSEL e conecte o cabo USB).
+      - Clique em "Upload" para gravar o firmware.
+    - Alternativamente, siga a documentação oficial para compilar e gravar via linha de comando.
 
-### GET `/update`
-Atualiza o contador com dados do hardware.
-```http
-GET /update?counter=123
-```
+## ▶️ Uso
 
-**Resposta**:
-```json
-{
-  "ok": true,
-  "count": 123,
-  "received": 123,
-  "shift": "Turno 1 (06:00 - 16:00 h)",
-  "ignore_shift_check": false
-}
-```
-
-### GET `/debug_status`
-Status atual do sistema para diagnóstico.
-```http
-GET /debug_status
-```
-
-**Resposta**:
-```json
-{
-  "count": 123,
-  "shift": "Turno 1 (06:00 - 16:00 h)",
-  "shift_key": "Turno 1 (06:00 - 16:00 h) - 2024-01-15",
-  "ignore_shift_check": false
-}
-```
-
-### WebSocket Events
-
-#### `status`
-Dados atualizados do sistema:
-```json
-{
-  "count": 123,
-  "current_shift": "Turno 1 (06:00 - 16:00 h)",
-  "history": [...],
-  "timestamp": "2024-01-15 10:30:00"
-}
-```
-
-## 🌐 Configuração de Rede
-
-### Wi-Fi
-Configure no `CMakeLists.txt`:
-```cmake
-set(WIFI_SSID "Nome_da_Rede")
-set(WIFI_PASSWORD "Senha_da_Rede")
-```
-
-### Servidor
-Configure no `projeto_kalfix.c`:
-```c
-#define HOST "192.168.1.100"  // IP do servidor
-#define PORT 5000             // Porta do servidor
-```
-
-### Firewall
-Certifique-se de que a porta 5000 está aberta:
-```bash
-# Ubuntu/Debian
-sudo ufw allow 5000
-
-# CentOS/RHEL
-sudo firewall-cmd --permanent --add-port=5000/tcp
-sudo firewall-cmd --reload
-```
-
-## 🗄️ Banco de Dados
-
-### Estrutura da Tabela `shifts`
-
-```sql
-CREATE TABLE shifts (
-    id SERIAL PRIMARY KEY,
-    turno_nome VARCHAR(255) NOT NULL,
-    data_turno DATE NOT NULL,
-    contador INTEGER DEFAULT 0,
-    inicio_turno TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    fim_turno TIMESTAMP NULL,
-    UNIQUE(turno_nome, data_turno)
-);
-```
-
-### Campos
-- **id**: Identificador único
-- **turno_nome**: Nome do turno (ex: "Turno 1 (06:00 - 16:00 h)")
-- **data_turno**: Data do turno
-- **contador**: Número de eventos contados
-- **inicio_turno**: Timestamp de início
-- **fim_turno**: Timestamp de fim (NULL se ativo)
-
-## 📊 Monitoramento
-
-### Logs do Servidor
-O servidor produz logs detalhados:
-```
-[2024-01-15 10:30:00] Recebido: counter=123
-[2024-01-15 10:30:00] Turno ativo: Turno 1 (06:00 - 16:00 h) - 2024-01-15
-[2024-01-15 10:30:00] ✅ CONTADOR ATUALIZADO NO BANCO: 123
-```
-
-### Indicadores Visuais
-- **LED no Pico W**: Pisca a cada evento detectado
-- **Status no Dashboard**: Indicador de conexão em tempo real
-- **Contador**: Atualização animada no frontend
-
-### Métricas
-- **Latência**: Tempo entre evento físico e atualização no dashboard
-- **Precisão**: Taxa de eventos detectados vs. eventos reais
-- **Disponibilidade**: Uptime do sistema
-
-## 🔧 Troubleshooting
-
-### Problemas Comuns
-
-#### Hardware não conecta ao Wi-Fi
-```bash
-# Verifique as credenciais no CMakeLists.txt
-# Teste a conectividade manualmente
-# Verifique se a rede suporta dispositivos IoT
-```
-
-#### Servidor não recebe dados
-```bash
-# Verifique o IP do servidor no firmware
-# Teste conectividade: ping <ip-do-servidor>
-# Verifique se a porta 5000 está aberta
-# Monitore logs do servidor
-```
-
-#### Banco de dados não conecta
-```bash
-# Verifique a string de conexão no .env
-# Teste conexão: psql $DATABASE_URL
-# Verifique se PostgreSQL está rodando
-# Confirme permissões do usuário
-```
-
-#### Dashboard não atualiza
-```bash
-# Verifique conexão WebSocket no navegador (F12)
-# Teste endpoint: curl http://localhost:5000/debug_status
-# Verifique logs do servidor
-```
-
-### Logs de Diagnóstico
-
-#### Firmware
-```c
-// Adicione mais logs no projeto_kalfix.c
-printf("DEBUG: GPIO state = %d\n", gpio_state);
-printf("DEBUG: HTTP response = %d\n", res);
-```
-
-#### Servidor
-```python
-# Ative logs detalhados
-import logging
-logging.basicConfig(level=logging.DEBUG)
-```
-
-## 🤝 Contribuição
-
-1. **Fork** o projeto
-2. **Crie** uma branch para sua feature (`git checkout -b feature/nova-funcionalidade`)
-3. **Commit** suas mudanças (`git commit -am 'Adiciona nova funcionalidade'`)
-4. **Push** para a branch (`git push origin feature/nova-funcionalidade`)
-5. **Abra** um Pull Request
-
-### Padrões de Código
-- **C/C++**: Siga o estilo do Pico SDK
-- **Python**: Use PEP 8
-- **JavaScript**: Use ESLint
-- **Commits**: Use mensagens descritivas em português
-
-## 📄 Licença
-
-Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
-
-## 📞 Suporte
-
-Para suporte técnico ou dúvidas:
-- **Issues**: Use o sistema de issues do GitHub
-- **Documentação**: Consulte este README e comentários no código
-- **Comunidade**: Participe das discussões no repositório
-
----
-
-**Desenvolvido com ❤️ para ambientes industriais modernos**
-
+1.  Garanta que o servidor Flask esteja em execução.
+2.  Conecte a Raspberry Pi Pico W à energia. Ela se conectará ao Wi-Fi e começará a monitorar o pino `GPIO 20`.
+3.  Acesse o dashboard no seu navegador (`http://IP_DO_SERVIDOR:5000`).
+4.  Conecte seu sensor ou botão ao `GPIO 20` e ao `GND`. Cada vez que o pino `GPIO 20` for para o nível lógico baixo (LOW), o contador será incrementado e o dashboard será atualizado em tempo real.

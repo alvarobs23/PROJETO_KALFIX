@@ -214,11 +214,15 @@ def update():
 def set_meta():
     data = request.get_json(silent=True) or {}
     turno_nome = data.get('turno_nome')
-    data_turno = data.get('data_turno')  # formato YYYY-MM-DD
     meta_turno = data.get('meta_turno')
     meta_dia = data.get('meta_dia')
-    if not turno_nome or not data_turno or meta_turno is None:
-        return jsonify({'ok': False, 'error': 'turno_nome, data_turno e meta_turno são obrigatórios'}), 400
+
+    # A data do turno agora é sempre a data atual, simplificando o frontend
+    _, shift_date_str = get_current_shift()
+    data_turno = shift_date_str or datetime.now().strftime('%Y-%m-%d')
+
+    if not turno_nome or meta_turno is None:
+        return jsonify({'ok': False, 'error': 'turno_nome e meta_turno são obrigatórios'}), 400
     ok = db_manager.set_goal_for_shift(turno_nome, data_turno, int(meta_turno), int(meta_dia) if meta_dia is not None else None)
     return jsonify({'ok': ok}), 200 if ok else 500
 

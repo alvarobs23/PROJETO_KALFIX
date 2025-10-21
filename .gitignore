@@ -1,1 +1,14 @@
-build
+# Arquivos de compilação do CMake
+build/
+
+# Arquivos gerados por editores de código
+.vscode/
+.idea/
+
+# Arquivos de ambiente e cache do Python
+web/__pycache__/
+web/*.pyc
+web/.env
+
+# Arquivos de sistema operacional
+.DS_Store

@@ -830,7 +830,7 @@
       </div>
       <div class="kpi-cards">
         <div class="info-card">
-          <h3>Meta do Turno</h3>
+          <h3>Meta Geral (Turnos)</h3>
           <div id="kpi-meta-turno" class="kpi-value">--</div>
           <div class="kpi-sub">Unidades</div>
           <div class="goal-input-container">
@@ -1445,7 +1445,7 @@
         alert('Não há um turno ativo para definir a meta.');
         return;
       }
-      const { turno_nome, data_turno } = parseShiftKey(key);
+      const { turno_nome } = parseShiftKey(key);
 
       goalSubmitBtn.disabled = true;
       goalSubmitBtn.textContent = 'Salvando...';
@@ -1454,7 +1454,7 @@
         const res = await fetch('/admin/meta', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ turno_nome, data_turno, meta_turno: newGoal })
+          body: JSON.stringify({ turno_nome, meta_turno: newGoal }) // Não precisamos mais enviar a data
         });
         const json = await res.json();
         if (json.ok) {

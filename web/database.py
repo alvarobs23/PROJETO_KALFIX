@@ -75,6 +75,20 @@ class DatabaseManager:
                 print(f"[INFO] Coluna 'perdas' já existe ou erro ao adicionar: {e}")
 
             # Tabela de metas por turno e por dia
+            # NOVA TABELA: Armazena a meta padrão para cada TIPO de turno
+            self.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS metas_p_turno (
+                    id SERIAL PRIMARY KEY,
+                    turno_nome VARCHAR(255) NOT NULL UNIQUE,
+                    meta INTEGER NOT NULL,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            self.conn.commit()
+            print("[OK] Tabela 'metas_p_turno' verificada/criada com sucesso.")
+
+
+            # Tabela antiga de metas, agora usada para registrar a meta histórica de cada turno
             self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS metas (
                     id SERIAL PRIMARY KEY,
@@ -124,14 +138,31 @@ class DatabaseManager:
             result = self.cursor.fetchone()
             if result:
                 return result[0]
-            else:
-                # Se o turno não existe, insere-o com contador 0 e retorna 0
+            
+            # Se o turno não existe no banco, vamos criá-lo.
+            # Primeiro, verificamos se há uma meta padrão para este tipo de turno.
+            self.cursor.execute(
+                "SELECT meta FROM metas_p_turno WHERE turno_nome = %s",
+                (turno_nome,)
+            )
+            meta_padrao_row = self.cursor.fetchone()
+            meta_padrao = meta_padrao_row[0] if meta_padrao_row else None
+
+            # Insere o novo turno com contador 0
+            self.cursor.execute(
+                "INSERT INTO shifts (turno_nome, data_turno, contador) VALUES (%s, %s, %s) RETURNING id",
+                (turno_nome, data_turno, 0)
+            )
+            new_shift_id = self.cursor.fetchone()[0]
+
+            # Se encontramos uma meta padrão, já a inserimos para o turno recém-criado
+            if meta_padrao is not None:
                 self.cursor.execute(
-                    "INSERT INTO shifts (turno_nome, data_turno, contador) VALUES (%s, %s, %s) RETURNING contador",
-                    (turno_nome, data_turno, 0)
+                    "INSERT INTO metas (shift_id, meta_turno) VALUES (%s, %s) ON CONFLICT (shift_id) DO NOTHING",
+                    (new_shift_id, meta_padrao)
                 )
-                self.conn.commit()
-                return 0
+            self.conn.commit()
+            return 0
         except Exception as e:
             print(f"[ERRO] Erro ao obter/inicializar contador do turno: {e}")
             self.conn.rollback()
@@ -273,10 +304,34 @@ class DatabaseManager:
 
     def set_goal_for_shift(self, turno_nome, data_turno, meta_turno, meta_dia=None):
         """Define meta do turno (e opcional meta diária) para um turno específico."""
+        # 1. Atualiza ou insere a meta PADRÃO para este TIPO de turno
+        # AGORA, ATUALIZA A META PARA TODOS OS TURNOS PADRÃO
+        try:
+            # Primeiro, insere os nomes dos turnos se não existirem
+            self.cursor.execute("""
+                INSERT INTO metas_p_turno (turno_nome, meta)
+                VALUES ('Turno 1 (06:00 - 16:00 h)', %s), ('Turno 2 (22:00 - 06:00 h)', %s)
+                ON CONFLICT (turno_nome) DO NOTHING;
+            """, (meta_turno, meta_turno))
+
+            # Depois, atualiza a meta para todos
+            self.cursor.execute(
+                "UPDATE metas_p_turno SET meta = %s, updated_at = NOW()",
+                (meta_turno,)
+            )
+            print(f"[OK] Meta padrão para TODOS os turnos atualizada para {meta_turno}.")
+        except Exception as e:
+            print(f"[ERRO] set_goal_for_shift (padrão): {e}")
+            self.conn.rollback()
+            return False
+
+        # 2. Garante que o turno específico existe e obtém seu ID
         shift_id, _ = self._get_or_create_shift(turno_nome, data_turno)
         if shift_id is None:
             print(f"[ERRO] set_goal_for_shift: Não foi possível obter/criar shift_id para {turno_nome} - {data_turno}")
             return False
+
+        # 3. Atualiza ou insere a meta para o turno específico (histórico)
         try:
             self.cursor.execute(
                 """
@@ -288,6 +343,7 @@ class DatabaseManager:
                 (shift_id, meta_turno, meta_dia)
             )
             self.conn.commit()
+            print(f"[OK] Meta para o turno específico (ID: {shift_id}) atualizada.")
             return True
         except Exception as e:
             print(f"[ERRO] set_goal_for_shift: {e}")
