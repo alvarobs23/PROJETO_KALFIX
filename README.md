@@ -91,15 +91,17 @@ Nesta etapa, vamos configurar o servidor web que receberá os dados do Pico.
 
 5.  **Configure as Variáveis de Ambiente:**
     - Na pasta `web`, crie um arquivo chamado `.env`.
-    - Adicione as seguintes variáveis, substituindo pelos seus valores. O `FLASK_SERVER_HOST` deve ser o IP do computador que está rodando o servidor na sua rede local.
+    - Adicione as seguintes variáveis, substituindo pelos seus valores.
+    - **Importante:** Use `0.0.0.0` para o `FLASK_SERVER_HOST`. Isso faz com que o servidor aceite conexões de qualquer dispositivo na sua rede.
 
     ```ini
     # Exemplo de arquivo .env
     DATABASE_URL="postgresql://SEU_USUARIO:SUA_SENHA@localhost:5432/dados_contagem"
     DB_NAME="dados_contagem"
-    FLASK_SERVER_HOST="192.168.1.10" # IP do seu computador na rede local
+    FLASK_SERVER_HOST="0.0.0.0" # Deixe 0.0.0.0 para escutar em todas as interfaces de rede
     FLASK_SERVER_PORT=5000
     ```
+    > Para descobrir o IP que você deve usar no firmware do Pico, abra o `cmd` e digite `ipconfig`. Procure pelo "Endereço IPv4" do seu adaptador de Wi-Fi ou Ethernet.
 
 6.  **Inicie o Servidor:**
     ```bash
@@ -117,14 +119,14 @@ Agora, vamos configurar e gravar o código na sua placa.
 
 2.  **Modifique as Configurações de Rede e Servidor:**
     - Altere `WIFI_SSID` e `WIFI_PASSWORD` para corresponder à sua rede Wi-Fi.
-    - Altere `HOST` para o mesmo endereço IP que você definiu em `FLASK_SERVER_HOST` no arquivo `.env` do servidor.
+    - Altere `HOST` para o **endereço IP local do seu computador** (o que você encontrou com o comando `ipconfig`).
 
     ```c
     // c:\Users\alvaro\kalfix\projeto_kalfix\projeto_kalfix.c
 
     // ...
     // Configurações de rede (MODIFICAR)
-    #ifndef WIFI_SSID
+    #ifndef WIFI_SSID // <-- MODIFIQUE OS VALORES DENTRO DAS ASPAS
     #define WIFI_SSID "NOME_DA_SUA_REDE_WIFI"
     #endif
     #ifndef WIFI_PASSWORD  
@@ -132,7 +134,7 @@ Agora, vamos configurar e gravar o código na sua placa.
     #endif
 
     // Configurações do servidor (MODIFICAR)
-    #define HOST        "192.168.1.10" // IP do computador rodando o servidor Flask
+    #define HOST        "192.168.1.10" // COLOQUE AQUI O IP DO SEU COMPUTADOR
     #define PORT        5000
     // ...
     ```

@@ -50,12 +50,13 @@ target_include_directories(example_lwip_http_util INTERFACE
 # Add executable. Default name is the project name, version 0.1
 
 add_executable(projeto_kalfix projeto_kalfix.c )
-set(WIFI_SSID "KALFIX")                   
-set(WIFI_PASSWORD "9988776655")          
-target_compile_definitions(projeto_kalfix PRIVATE
-        WIFI_SSID=\"${WIFI_SSID}\"
-        WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
-        )
+# # Comentado para que as credenciais sejam definidas diretamente no arquivo .c
+# set(WIFI_SSID "KALFIX")
+# set(WIFI_PASSWORD "9988776655")
+# target_compile_definitions(projeto_kalfix PRIVATE
+#         WIFI_SSID=\"${WIFI_SSID}\"
+#         WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
+#         )
 
 pico_set_program_name(projeto_kalfix "projeto_kalfix")
 pico_set_program_version(projeto_kalfix "0.1")
