@@ -28,6 +28,9 @@ set(PICO_BOARD pico_w CACHE STRING "Board type")
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
+# Adiciona a definição para habilitar a API de configuração de país do Wi-Fi.
+add_compile_definitions(PICO_CYW43_ARCH_WIFI_COUNTRY)
+
 project(projeto_kalfix C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
@@ -70,7 +73,9 @@ target_link_libraries(projeto_kalfix
         pico_stdlib
         pico_cyw43_arch_lwip_threadsafe_background
         example_lwip_http_util
-        hardware_adc  
+        hardware_adc
+        hardware_i2c  
+        pico_multicore 
         )
 
 # Add the standard include files to the build
