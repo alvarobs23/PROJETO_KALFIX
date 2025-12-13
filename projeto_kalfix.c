@@ -14,6 +14,7 @@
 #include "example_http_client_util.h"
 #include "hardware/structs/resets.h"
 #include "hardware/sync.h"
+#include "hardware/pwm.h"
 
 // ========== CONFIGURAÇÕES ==========
 // Ajuste seu SSID/SENHA se necessário
@@ -28,7 +29,12 @@
 #define PORT        5000
 
 // GPIO monitor (entrada com pull-up)
-#define GPIO_MONITOR 20
+#define GPIO_MONITOR 5
+#define GPIO_MONITOR_2 6
+
+// Configuração do Buzzer
+#define GPIO_BUZZER 21
+#define META_CONTAGEM 110
 
 // I2C (LCD) - I2C1 (GP18 SDA, GP19 SCL)
 #define I2C_PORT i2c1
@@ -390,13 +396,13 @@ static bool load_counter_from_flash_wrapper(uint32_t *counter, uint8_t *day, uin
 
 // ========== LÓGICA DE TURNOS ==========
 typedef enum {
-    TURNO_1,   // 06:00 - 19:59 (ajustado conforme necessidade)
+    TURNO_1,   // 06:00 - 17:59 (ajustado conforme necessidade)
     TURNO_2,   // 22:00 - 05:59
     INTERVALO
 } ShiftState;
 
 static ShiftState get_current_shift_state(uint8_t hour) {
-    if (hour >= 6 && hour < 20) {
+    if (hour >= 6 && hour < 18) {
         return TURNO_1;
     } else if (hour >= 22 || hour < 6) {
         return TURNO_2;
@@ -503,7 +509,7 @@ void core1_entry() {
             bool same_day = (s_day == current_rtc_time.day && s_month == current_rtc_time.month && s_year == current_rtc_time.year);
 
             if (current_shift_state == TURNO_1) {
-                // Turno 1 (06:00 - 19:59): Deve ser o mesmo dia
+                // Turno 1 (06:00 - 17:59): Deve ser o mesmo dia
                 if (same_day && get_current_shift_state(s_hour) == TURNO_1) should_restore = true;
             } else if (current_shift_state == TURNO_2) {
                 // Turno 2 (22:00 - 05:59): Pode cruzar a meia-noite
@@ -543,12 +549,34 @@ void core1_entry() {
     gpio_set_dir(GPIO_MONITOR, GPIO_IN);
     gpio_pull_up(GPIO_MONITOR);
 
+    gpio_init(GPIO_MONITOR_2);
+    gpio_set_dir(GPIO_MONITOR_2, GPIO_IN);
+    gpio_pull_up(GPIO_MONITOR_2);
+
     int last_gpio_state = 1;
+    int last_gpio_state_2 = 1;
     uint32_t last_event_time = 0;
+    uint32_t last_event_time_2 = 0;
+    bool was_simultaneous = false;
+
+    // Inicialização do Buzzer
+    gpio_set_function(GPIO_BUZZER, GPIO_FUNC_PWM);
+    uint slice_num = pwm_gpio_to_slice_num(GPIO_BUZZER);
+    pwm_config config = pwm_get_default_config();
+    pwm_config_set_clkdiv(&config, 125.0f); // 125MHz / 125 = 1MHz
+    pwm_config_set_wrap(&config, 500);      // 1MHz / 500 = 2kHz (Tom audível)
+    pwm_init(slice_num, &config, false);    // Inicia desligado
+    pwm_set_chan_level(slice_num, pwm_gpio_to_channel(GPIO_BUZZER), 250); // 50% duty cycle
+
+    bool buzzer_active = false;
+    uint32_t buzzer_start_time = 0;
+    bool meta_reached = (event_counter >= META_CONTAGEM);
+
     uint32_t last_time_update = 0;
 
     while (1) {
         int gpio_state = gpio_get(GPIO_MONITOR);
+        int gpio_state_2 = gpio_get(GPIO_MONITOR_2);
         uint32_t current_time = to_ms_since_boot(get_absolute_time());
 
         // Atualiza a hora a cada segundo (para decidir turno)
@@ -587,20 +615,56 @@ void core1_entry() {
 
         // Contagem condicional por turno (apenas se estivermos em um turno)
         if (current_shift_state != INTERVALO) {
-            if (last_gpio_state == 1 && gpio_state == 0) {
+            int delta = 0;
+            // Monitoramento principal pelo GPIO 5 (GPIO_MONITOR_2)
+            if (last_gpio_state_2 == 1 && gpio_state_2 == 0) {
+                if (current_time - last_event_time_2 > MIN_EVENT_INTERVAL) {
+                    last_event_time_2 = current_time;
+                    delta++;
+                }
+            }
+
+            // Monitoramento de simultaneidade (GPIO 6 e 5 ativos juntos = +1 extra)
+            bool is_simultaneous = (gpio_state == 0 && gpio_state_2 == 0);
+            if (is_simultaneous && !was_simultaneous) {
                 if (current_time - last_event_time > MIN_EVENT_INTERVAL) {
                     last_event_time = current_time;
-                    event_counter++;
-                    latest_pending = event_counter;
-                    has_pending_data = true;
-                    update_lcd_count();
+                    delta++;
                 }
+            }
+            was_simultaneous = is_simultaneous;
+
+            if (delta > 0) {
+                event_counter += delta;
+                latest_pending = event_counter;
+                has_pending_data = true;
+                update_lcd_count();
             }
         } else {
             // Em intervalo: não contabilizar nada
         }
 
+        // --- Lógica do Buzzer ---
+        // Ativa se atingir a meta e ainda não tiver ativado neste ciclo
+        if (!meta_reached && event_counter >= META_CONTAGEM) {
+            meta_reached = true;
+            pwm_set_enabled(slice_num, true); // Liga o PWM (som)
+            buzzer_active = true;
+            buzzer_start_time = current_time;
+            printf("[CORE1] Meta de %d atingida! Buzzer ativado.\n", META_CONTAGEM);
+        }
+        // Reseta a flag se o contador baixar de 100 (ex: reset de turno)
+        if (event_counter < META_CONTAGEM) {
+            meta_reached = false;
+        }
+        // Desliga o buzzer após 5 segundos (5000 ms)
+        if (buzzer_active && (current_time - buzzer_start_time >= 5000)) {
+            pwm_set_enabled(slice_num, false); // Desliga o PWM
+            buzzer_active = false;
+        }
+
         last_gpio_state = gpio_state;
+        last_gpio_state_2 = gpio_state_2;
 
         // Decidir gravação periódica na flash (pedido para core0)
         if (current_time - last_time_update < 10000) {

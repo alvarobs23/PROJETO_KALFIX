@@ -75,6 +75,7 @@ target_link_libraries(projeto_kalfix
         example_lwip_http_util
         hardware_adc
         hardware_i2c  
+        hardware_pwm
         pico_multicore 
         )
 
