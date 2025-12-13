@@ -4,7 +4,7 @@ Este projeto utiliza um Raspberry Pi Pico W para monitorar pulsos de produção,
 
 ## Funcionalidades Principais
 
-*   **Contagem de Pulsos:** Monitoramento de sensor digital no GPIO 6 com debounce.
+*   **Contagem de Pulsos:** Monitoramento de sensor digital no GPIO 20 com debounce.
 *   **Display Local:** Exibição de contagem, hora atual e status do turno em LCD 16x2 (I2C).
 *   **Relógio em Tempo Real (RTC):** Integração com módulo DS3231 para precisão temporal e manutenção da hora sem energia.
 *   **Gestão de Turnos:** Lógica automática que zera ou restaura contadores baseada em horários definidos (Turno 1, Turno 2, Intervalo).
@@ -15,7 +15,7 @@ Este projeto utiliza um Raspberry Pi Pico W para monitorar pulsos de produção,
 ## Hardware e Pinagem
 
 *   **Microcontrolador:** Raspberry Pi Pico W
-*   **Sensor de Entrada:** GPIO 6 (Configurado com Pull-up)
+*   **Sensor de Entrada:** GPIO 20 (Configurado com Pull-up)
 *   **Display LCD (I2C1):**
     *   SDA: GPIO 18
     *   SCL: GPIO 19
@@ -64,7 +64,7 @@ O sistema utiliza os dois núcleos (cores) do RP2040:
 *   **Loop Principal:** Processa solicitações de gravação vindas do Core 1 e gerencia a fila de envio de dados para a rede.
 
 ### Core 1 (Tempo Real e Interface)
-*   **Loop de Contagem:** Monitora o GPIO 6 continuamente.
+*   **Loop de Contagem:** Monitora o GPIO 20 continuamente.
 *   **Interface (LCD):** Atualiza a contagem e o relógio no display utilizando Mutex para acesso seguro.
 *   **Lógica de Turnos:**
     *   **Turno 1:** 06:00 às 19:59

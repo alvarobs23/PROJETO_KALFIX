@@ -1,5 +1,3 @@
-// main.c (versão com correções: gravação de flash feita apenas no core0,
-// utiliza http_client_request_sync() (API antiga) para enviar /update?counter=...)
 
 #include <stdio.h>
 #include <stdbool.h>
@@ -30,7 +28,7 @@
 #define PORT        5000
 
 // GPIO monitor (entrada com pull-up)
-#define GPIO_MONITOR 6
+#define GPIO_MONITOR 20
 
 // I2C (LCD) - I2C1 (GP18 SDA, GP19 SCL)
 #define I2C_PORT i2c1
