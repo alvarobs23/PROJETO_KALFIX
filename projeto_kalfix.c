@@ -504,7 +504,7 @@ void core1_entry() {
 
             if (current_shift_state == TURNO_1) {
                 // Turno 1 (06:00 - 19:59): Deve ser o mesmo dia
-                if (same_day) should_restore = true;
+                if (same_day && get_current_shift_state(s_hour) == TURNO_1) should_restore = true;
             } else if (current_shift_state == TURNO_2) {
                 // Turno 2 (22:00 - 05:59): Pode cruzar a meia-noite
                 if (current_rtc_time.hour >= 22) {
