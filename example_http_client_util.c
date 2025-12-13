@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "pico/time.h"
 #include "pico/async_context.h"
 #include "lwip/altcp.h"
 #include "lwip/altcp_tls.h"
@@ -141,9 +142,13 @@ int http_client_request_sync(async_context_t *context, EXAMPLE_HTTP_REQUEST_T *r
     if (ret != 0) {
         return ret;
     }
+    absolute_time_t timeout = make_timeout_time_ms(10000); // Timeout de 10 segundos
     while(!req->complete) {
+        if (time_reached(timeout)) {
+            return -1; // Retorna erro se demorar demais
+        }
         async_context_poll(context);
-        async_context_wait_for_work_ms(context, 1000);
+        async_context_wait_for_work_ms(context, 100); // Verifica mais frequentemente
     }
     return req->result;
 }
